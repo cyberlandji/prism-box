@@ -1,0 +1,44 @@
+# ─────────────────────────────────────────────────────────────
+# Prism Box — .gitignore
+# Keeps secrets, certificates, and local artifacts out of git.
+# ─────────────────────────────────────────────────────────────
+
+# Environment files with live secrets (passwords, tokens)
+.env
+*.env
+!*.env.example
+
+# WireGuard configs and keys — NEVER commit these
+*.conf
+wg0.conf
+*_private.key
+*_public.key
+*.key
+
+# TLS / PKI material
+certs/
+*.crt
+*.pem
+*.p12
+*.pfx
+ca.zip
+certs.zip
+
+# Elasticsearch / Docker local data
+esdata*/
+kibanadata/
+*.log
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Python (for later tooling / detection-as-code scripts)
+__pycache__/
+*.pyc
+.venv/
+venv/
