@@ -1,0 +1,84 @@
+title: Potential Data Exfiltration Activity Via CommandLine Tools
+id: 93e4f644-3941-4a47-bafa-86bd972e7c92
+status: test
+description: |
+    Detects CLI utilities exfiltrating local data via web requests - a web-request cmdlet (curl,
+    Invoke-WebRequest, etc.) issuing a POST whose body is sourced from a local read (Get-Content,
+    type, base64, recon output). Emulated as Magpie node 11 (Atomic Red Team T1041 test #1): a
+    powershell generates LineNumbers.txt and Invoke-WebRequest -Method POST -Body $filecontent's it
+    to a remote host. Sole coverage - Defender was silent. Note the atomic POSTs synthetic dummy
+    data to a placeholder domain (example.com), not the run's collected loot; the exfil command
+    pattern is fully captured here, while the confirmed network destination is one
+    event.category:network pivot away.
+references:
+    - https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1041/T1041.md
+    - https://github.com/SigmaHQ/sigma/blob/master/rules/windows/process_creation/proc_creation_win_susp_data_exfiltration_via_cli.yml
+author: Nasreddine Bencherchali (Nextron Systems) (original rule), Yohan Landji (Cyberlandji) (PB-02 adaptation)
+date: 2026-08-16
+related:
+    - id: 7d1aaf3d-4304-425c-b7c3-162055e0b3ab
+      type: derived
+tags:
+    - attack.exfiltration
+    - attack.t1041
+    - attack.execution
+    - attack.t1059.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_iwr:
+        Image|endswith:
+            - '\powershell_ise.exe'
+            - '\powershell.exe'
+            - '\pwsh.exe'
+            - '\cmd.exe'
+        CommandLine|contains:
+            - 'curl '
+            - 'Invoke-RestMethod'
+            - 'Invoke-WebRequest'
+            - 'irm '
+            - 'iwr '
+            - 'wget '
+        CommandLine|contains|all:
+            - ' -ur' # Shortest possible version of the -uri flag
+            - ' -me' # Shortest possible version of the -method flag
+            - ' -b'
+            - ' POST '
+    selection_curl:
+        Image|endswith: '\curl.exe'
+        CommandLine|contains: '--ur' # Shortest possible version of the --uri flag
+    selection_curl_data:
+        CommandLine|contains:
+            - ' -d ' # Shortest possible version of the --data flag
+            - ' --data '
+    selection_wget:
+        Image|endswith: '\wget.exe'
+        CommandLine|contains:
+            - '--post-data'
+            - '--post-file'
+    payloads:
+        - CommandLine|re:
+              - 'net\s+view'
+              - 'sc\s+query'
+        - CommandLine|contains:
+              - 'Get-Content'
+              - 'GetBytes'
+              - 'hostname'
+              - 'ifconfig'
+              - 'ipconfig'
+              - 'netstat'
+              - 'nltest'
+              - 'qprocess'
+              - 'systeminfo'
+              - 'tasklist'
+              - 'ToBase64String'
+              - 'whoami'
+        - CommandLine|contains|all:
+              - 'type '
+              - ' > '
+              - ' C:\'
+    condition: (selection_iwr or all of selection_curl* or selection_wget) and payloads
+falsepositives:
+    - Unlikely
+level: high

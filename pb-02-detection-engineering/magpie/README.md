@@ -1,10 +1,12 @@
 # Magpie — Lumma Stealer Emulation
 
 An 11-node kill chain emulating **Lumma Stealer** behaviour with **Atomic Red Team**, detonated on
-`pb-victim-win10` against the PB-01 Elastic brain, then correlated node-by-node against ground truth.
+`pb-victim-win10` against the PB-01 Elastic brain, then correlated node-by-node against ground truth
+and turned into deployed detection rules.
 
 - **Correlation phase: complete** — all 11 nodes reconstructed from independent evidence.
-- **Rules phase: in progress** — see [`rules/`](#detection-rules-in-progress).
+- **Rules phase: complete** — 4 rules deployed and replay-validated; see
+  [`rules/README.md`](./rules/README.md).
 
 ---
 
@@ -13,23 +15,26 @@ An 11-node kill chain emulating **Lumma Stealer** behaviour with **Atomic Red Te
 **9 sole · 2 overlap. Defender caught 2 of 11 — both by command-line behavioural detection on the
 delivery/transfer stages. Everything after the foothold passed the malware-NGAV tier untouched.**
 
-| # | Technique | Test | Fired | Defender (1116/1117) | Coverage | Analysis |
-|---|---|---|---|---|---|---|
-| 00 | *driver* | detonation driver | — | — | — | [driver](./correlation/00-driver-execution/analysis.md) |
-| 1 | T1204.002 | #12 ClickFix RunMRU → mshta | ✅ | none | **sole** | [01](./correlation/01-T1204.002/analysis.md) |
-| 2 | T1218.005 | #10 Mshta exec PowerShell | ✅ | detect+act · `ClickFix.DJS!MTB` | overlap | [02](./correlation/02-T1218.005/analysis.md) |
-| 3 | T1059.001 | #15 EncodedCommand param variations | ⚠️ harness | none | **sole** *(no artifact)* | [03](./correlation/03-T1059.001/analysis.md) |
-| 4 | T1112 | #7 Set-ExecutionPolicy Bypass | ✅ | none | **sole** | [04](./correlation/04-T1112/analysis.md) |
-| 5 | T1105 | #10 PowerShell Download | ✅ | detect+act · `Commandrob.A!ml` | overlap | [05](./correlation/05-T1105/analysis.md) |
-| 6 | T1082 | #9 MachineGUID Discovery | ✅ | none | **sole** | [06](./correlation/06-T1082/analysis.md) |
-| 7 | T1518.001 | #9 Defender Enumeration | ✅ *(exit 1)* | none | **sole** | [07](./correlation/07-T1518.001/analysis.md) |
-| 8 | T1555.003 | #16 BrowserStealer | ✅ | none | **sole** | [08](./correlation/08-T1555.003/analysis.md) |
-| 9 | T1539 | #4 Chrome v127+ cookies (remote debug) | ⚠️ failed | none | **sole** *(vs Chrome 151)* | [09](./correlation/09-T1539/analysis.md) |
-| 10 | T1005 | #1 Stage files to zip | ✅ | none | **sole** | [10](./correlation/10-T1005/analysis.md) |
-| 11 | T1041 | #1 C2 Data Exfiltration | ✅ | none | **sole** | [11](./correlation/11-T1041/analysis.md) |
+| # | Technique | Test | Fired | Defender (1116/1117) | Coverage | Rule | Analysis |
+|---|---|---|---|---|---|---|---|
+| 00 | *driver* | detonation driver | — | — | — | — | [driver](./correlation/00-driver-execution/analysis.md) |
+| 1 | T1204.002 | #12 ClickFix RunMRU → mshta | ✅ | none | **sole** | deferred → Forge | [01](./correlation/01-T1204.002/analysis.md) |
+| 2 | T1218.005 | #10 Mshta exec PowerShell | ✅ | detect+act · `ClickFix.DJS!MTB` | overlap | **deployed (EQL)** | [02](./correlation/02-T1218.005/analysis.md) |
+| 3 | T1059.001 | #15 EncodedCommand param variations | ⚠️ harness | none | **sole** *(no artifact)* | none | [03](./correlation/03-T1059.001/analysis.md) |
+| 4 | T1112 | #7 Set-ExecutionPolicy Bypass | ✅ | none | **sole** | deferred → Forge | [04](./correlation/04-T1112/analysis.md) |
+| 5 | T1105 | #10 PowerShell Download | ✅ | detect+act · `Commandrob.A!ml` | overlap | deferred → Forge | [05](./correlation/05-T1105/analysis.md) |
+| 6 | T1082 | #9 MachineGUID Discovery | ✅ | none | **sole** | **deployed (Lucene)** | [06](./correlation/06-T1082/analysis.md) |
+| 7 | T1518.001 | #9 Defender Enumeration | ✅ *(exit 1)* | none | **sole** | deferred → Forge | [07](./correlation/07-T1518.001/analysis.md) |
+| 8 | T1555.003 | #16 BrowserStealer | ✅ | none | **sole** | deferred → Forge | [08](./correlation/08-T1555.003/analysis.md) |
+| 9 | T1539 | #4 Chrome cookies (remote debug) | ⚠️ failed | none | **sole** *(vs Chrome 151)* | **deployed (Lucene)** | [09](./correlation/09-T1539/analysis.md) |
+| 10 | T1005 | #1 Stage files to zip | ✅ | none | **sole** | deferred → Forge | [10](./correlation/10-T1005/analysis.md) |
+| 11 | T1041 | #1 C2 Data Exfiltration | ✅ | none | **sole** | **deployed (EQL)** | [11](./correlation/11-T1041/analysis.md) |
 
 `✅` fired and produced the technique's artifact · `⚠️` fired but the artifact was absent (node 03) or
 the technique failed (node 09) — see those nodes for the distinction.
+
+**Rules summary: 4 deployed · 2 deferred (telemetry/coverage) · 1 no-artifact · 4 author-from-scratch
+(Forge).** The per-node rule decisions and their reasons are in [`rules/README.md`](./rules/README.md).
 
 ---
 
@@ -65,8 +70,8 @@ condition for judging what custom rules add. Findings:
 - Defender detected+remediated **2 of 11** nodes (02, 05), both via command-line behavioural
   detection, each a **1116 (detected) → 1117 (removed)** pair.
 - The 2 blocked nodes still produced **full command-line telemetry in the 4688** — the process is
-  created (and audited) before Defender's kill — so behavioural rule authoring loses nothing. No
-  clean re-run was required.
+  created (and audited) before Defender's kill — so detection authoring loses nothing. No clean
+  re-run was required.
 - Mid-analysis the lab lost internet (unrelated), which forced correlation directly from raw Event
   Viewer alongside Kibana — a strength for the write-up, not a loss.
 
@@ -79,8 +84,8 @@ simultaneous rework). Logged as a hard-gate checklist item; the run remained suf
 
 **The malware-NGAV tier stops at the foothold.** Both Defender hits are on delivery/transfer — mshta
 proxying PowerShell (node 02) and a WebClient download (node 05). Discovery, credential access,
-collection, and exfil were all undetected. That gap is the argument for behavioural detection
-engineering on this platform.
+collection, and exfil were all undetected. That gap is the argument for custom detection engineering
+on this platform.
 
 **Defender interference triangulates from three independent artifacts.** Nodes 02 and 05 are each
 marked, separately, by (1) the 1116/1117 pair, (2) a sparse Kibana process `end` document from the
@@ -135,17 +140,31 @@ end-to-end*.
 
 ---
 
-## Detection rules (in progress)
+## Detection rules (complete)
 
-> **Status: pending.** The correlation phase is complete; Sigma authoring is the next phase and lives
-> in [`rules/`](./rules/), mirrored into the *the-forge* detection-as-code pipeline. Rules are
-> written from the findings above and target the **sole-coverage** nodes first (net-new coverage over
-> the malware-NGAV tier). Two nodes carry caveats the rule work must respect:
-> - **Node 03** produced no encoded-command artifact this run — a T1059.001 EncodedCommand rule is
->   authored from the technique signature and validated later against a targeted atomic, not anchored
->   on the harness.
-> - **Nodes 09/11** fired without succeeding / without sending real loot — rules target the *attempt*
->   (remote-debugging launch, POST exfil), which is fully observable regardless of outcome.
+**4 rules deployed as Elastic Security detection rules and replay-validated against live alerts.**
+Full method, per-node coverage decisions, and the Lucene→EQL debugging finding are in
+[`rules/README.md`](./rules/README.md).
+
+- **Deployed (4):** node 6 (T1082, Lucene), node 2 (T1218.005, EQL), node 9 (T1539, Lucene),
+  node 11 (T1041, EQL). Adapted from canonical SigmaHQ rules with attribution preserved
+  (`related: derived`, DRL licence).
+- **Deferred → Forge (author-from-scratch):** nodes 1, 4, 5, 7, 8, 10. Two distinct reasons — node 1
+  is a **telemetry limit** (canonical rule needs `registry.data.strings`, null on this Defend config);
+  nodes 4/5/7/8/10 have **no matching canonical process rule** and are author-from-scratch work.
+- **No rule, by design:** node 3 — the encoded-command artifact never fired (harness only), so there
+  is nothing to detect but the test tool.
+
+Two nodes carry validation caveats the rules respect:
+- **Node 09/11** fired without succeeding / without sending real loot — the rules target the *attempt*
+  (remote-debugging launch, POST exfil), which is fully observable regardless of outcome.
+- **Node 02** is overlap — Defender AV also removes it; the rule keys on the persistent `start` event
+  so it fires as defense-in-depth alongside AV.
+
+**Headline finding:** two rules that were provably correct on paper produced zero alerts as Lucene,
+because Lucene wildcards on the whitespace-tokenized `process.command_line` field cannot match
+space-bearing substrings. Re-converting them to **EQL** fixed it — validated 2-fired → 4-fired. Full
+diagnosis in the rules README.
 
 ---
 
@@ -161,5 +180,10 @@ magpie/
 │   ├── 01-T1204.002/analysis.md
 │   │   … 11-T1041/analysis.md
 │   └── (screenshots per node folder)
-└── rules/                          # IN PROGRESS
+└── rules/                          # COMPLETE — 4 deployed + validated
+    ├── README.md                   # method, coverage decisions, Lucene→EQL finding, evidence
+    ├── yml/                        # portable Sigma (source of truth)
+    ├── lucene/                     # Lucene ndjson (6, 9 deployed; 2, 11 kept as evidence)
+    ├── eql/                        # EQL ndjson (2, 11 deployed)
+    └── *.png                       # import + 2-fired + 4-fired evidence
 ```

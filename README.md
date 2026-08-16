@@ -47,9 +47,8 @@ Elasticsearch (data plane).
 | Phase | Focus | Status |
 |-------|-------|--------|
 | **PB-01 — Elastic Foundation** | Single-node Elasticsearch + Kibana on cloud infra, WireGuard admin tunnel, Fleet Server, and Elastic Defend EDR — telemetry flowing end to end. | 🟢 Complete |
-| **PB-02 — Detection Engineering** | Atomic Red Team on the endpoint; authoring and validating detection rules against real telemetry. | ⚪ Planned |
+| **PB-02 — Detection Engineering** | Atomic Red Team on the endpoint; authoring and validating detection rules against real telemetry. First campaign (**Magpie** / Lumma Stealer) complete: 11 nodes correlated, 4 rules deployed + replay-validated. Living lab — more campaigns to follow. | 🟡 In progress |
 | **PB-03 — Automated Response** | Hardening pass + SOAR automation (Shuffle) for response workflows. | ⚪ Planned |
-| **PB-04 — Sentinel Mirror** | Microsoft-stack mirror: Defender for Endpoint + Sentinel, KQL translation of the detection logic. | ⚪ Planned |
 
 ---
 

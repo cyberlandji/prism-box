@@ -1,0 +1,73 @@
+title: MSHTA Execution With Suspicious Extension or Inline VBScript
+id: 54815014-5a9f-42a3-bb11-ed5770920347
+status: test
+description: |
+    Detects mshta.exe executing an inline HTA that carries VBScript, or referencing a file whose
+    extension is not typical HTA content (often a polyglot). mshta is a signed Windows LOLBin;
+    adversaries proxy execution through it to evade process-name allowlists. Emulated as Magpie
+    node 2 (Atomic Red Team T1218.005 test #10): cmd.exe launches mshta.exe with an about: inline
+    HTA whose VBScript spawns powershell.exe. Defender AV already detects and removes this node
+    (Trojan:Win32/ClickFix.DJS!MTB) - this rule is defense-in-depth, keying on the process-creation
+    start event, which persists despite Defender's later remediation.
+references:
+    - https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1218.005/T1218.005.md
+    - https://github.com/SigmaHQ/sigma/blob/master/rules/windows/process_creation/proc_creation_win_mshta_susp_execution.yml
+    - http://blog.sevagas.com/?Hacking-around-HTA-files
+author: Diego Perez (@darkquassar), Markus Neis, Swachchhanda Shrawan Poudel (Nextron Systems) (original rule), Yohan Landji (Cyberlandji) (PB-02 adaptation)
+date: 2026-08-16
+related:
+    - id: cc7abbd0-762b-41e3-8a26-57ad50d2eea3
+      type: derived
+tags:
+    - attack.execution
+    - attack.t1218.005
+    - attack.defense-evasion
+    - attack.t1059.007
+    - attack.t1140
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        - Image|endswith: '\mshta.exe'
+        - OriginalFileName: 'mshta.exe'
+    selection_cli:
+        CommandLine|contains:
+            - '.7z'
+            - '.avi'
+            - '.bat'
+            - '.bmp'
+            - '.conf'
+            - '.csv'
+            - '.dll'
+            - '.doc'
+            - '.gif'
+            - '.gz'
+            - '.ini'
+            - '.jpe'
+            - '.jpg'
+            - '.json'
+            - '.lnk'
+            - '.log'
+            - '.mkv'
+            - '.mp3'
+            - '.mp4'
+            - '.pdf'
+            - '.png'
+            - '.ppt'
+            - '.rar'
+            - '.rtf'
+            - '.svg'
+            - '.tar'
+            - '.tmp'
+            - '.txt'
+            - '.xls'
+            - '.xml'
+            - '.yaml'
+            - '.yml'
+            - '.zip'
+            - 'vbscript'
+    condition: all of selection_*
+falsepositives:
+    - False positives depend on scripts and administrative tools used in the monitored environment
+level: high

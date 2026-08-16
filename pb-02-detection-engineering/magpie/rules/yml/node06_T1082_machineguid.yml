@@ -1,0 +1,36 @@
+title: Suspicious Query of MachineGUID via reg.exe
+id: 20316b48-9356-41f3-a6a1-eccd78f99233
+status: test
+description: |
+    Detects use of reg.exe to read the HKLM\SOFTWARE\Microsoft\Cryptography MachineGuid
+    value - a stable per-install host identifier that infostealers (Lumma among them) use to
+    fingerprint the victim. Emulated as Magpie node 6 (Atomic Red Team T1082 test #9) and
+    validated against the PB-02 detonation: the canonical SigmaHQ rule fired on the reg.exe
+    leaf event unchanged, so this is an attribution-preserving adaptation, not a logic change.
+references:
+    - https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1082/T1082.md
+    - https://github.com/SigmaHQ/sigma/blob/master/rules/windows/process_creation/proc_creation_win_reg_machineguid.yml
+author: frack113 (original rule), Yohan Landji (Cyberlandji) (PB-02 adaptation)
+date: 2026-08-16
+modified: 2026-08-16
+related:
+    - id: f5240972-3938-4e56-8e4b-e33893176c1f
+      type: derived
+tags:
+    - attack.discovery
+    - attack.t1082
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\reg.exe'
+        CommandLine|contains|all:
+            - 'SOFTWARE\Microsoft\Cryptography'
+            - '/v '
+            - 'MachineGuid'
+    condition: selection
+falsepositives:
+    - Rare. Some inventory/telemetry software reads MachineGuid, but usually via the registry
+      API rather than a reg.exe child process, which this rule does not match.
+level: low

@@ -2,19 +2,20 @@
 
 Second lab in the **Prism Box** series. Where PB-01 stood up the Elastic brain and enrolled the
 victim endpoint, PB-02 uses that platform to **detonate real adversary techniques, correlate the
-resulting telemetry against ground truth, and turn the findings into detection logic.**
+resulting telemetry against ground truth, and turn the findings into deployed, validated detection
+logic.**
 
 The work is deliberately split into two phases per campaign:
 
 1. **Correlation** — detonate a pinned technique chain, then reconstruct what actually happened from
    independent evidence sources (Windows Security 4688, Windows Defender Operational, Elastic Defend
    in Kibana) and a run manifest. Each technique gets its own `analysis.md`.
-2. **Rules** — author and validate detection logic (Sigma) from what the correlation surfaced.
-   Kept in a separate folder from correlation on purpose: *analysis* and *detection engineering* are
-   two different skills with two different homes.
+2. **Rules** — author and validate detection logic from what the correlation surfaced. Kept in a
+   separate folder from correlation on purpose: *analysis* and *detection engineering* are two
+   different skills with two different homes.
 
-The first campaign, **Magpie** (Lumma Stealer emulation), has its correlation phase **complete** —
-all 11 nodes analysed. This is what the current push contains.
+The first campaign, **Magpie** (Lumma Stealer emulation), has **both phases complete**: all 11 nodes
+correlated, and **4 detection rules deployed and replay-validated** on the platform.
 
 ---
 
@@ -25,7 +26,7 @@ all 11 nodes analysed. This is what the current push contains.
 | Victim | `pb-victim-win10` (`DESKTOP-EB94L4C`, `10.10.10.3`) — Windows 10, Elastic Defend enrolled |
 | SIEM / brain | `prismbox-pb01` (`10.10.10.1`, Hetzner) — single-node Elastic 9.x via docker-compose, Fleet Server |
 | Transport | all services bound to a WireGuard mesh |
-| Operator | local Linux host (Invoke-AtomicTest driver, analysis) |
+| Operator | local Linux host (Invoke-AtomicTest driver, analysis, rule conversion) |
 
 **Elastic Defend licence scope (load-bearing for the whole lab):** on the current non-Platinum
 licence, only *Malware protection* is configurable — the behavioural protection suite is
@@ -47,7 +48,7 @@ reproducible rather than "some PowerShell test, roughly."
 protection deliberately **on**. That is the realistic condition — a defender assessing custom-rule
 value wants to know what the AV tier already catches and what slips past. Nodes Defender blocked
 still yielded full command-line telemetry in the 4688 (the process is created before the block), so
-the run is sufficient for behavioural rule authoring; no clean re-run was needed. *(Honesty note: a
+the run is sufficient for detection authoring; no clean re-run was needed. *(Honesty note: a
 pre-detonation VM snapshot was missed on this run due to working-memory saturation during
 simultaneous rework — logged as a hard-gate checklist item, not repeated.)*
 
@@ -69,41 +70,43 @@ rather than the technique's own artifact. Failures and null results are document
 
 ---
 
-## Magpie — Lumma Stealer emulation (correlation complete)
+## Magpie — Lumma Stealer emulation (correlation + rules complete)
 
 **11-node kill chain, one calibration run. Defender caught 2 of 11 — both by command-line
 behavioural detection on the delivery/transfer stages; everything post-foothold (discovery,
 credential access, collection, exfil) passed the NGAV tier untouched.**
 
-| # | Technique | Test | Defender | Coverage |
-|---|---|---|---|---|
-| 1 | T1204.002 — User Execution | #12 ClickFix RunMRU → mshta | — | sole |
-| 2 | T1218.005 — Mshta | #10 Mshta exec PowerShell | 1116/1117 · `ClickFix.DJS!MTB` | overlap |
-| 3 | T1059.001 — PowerShell | #15 EncodedCommand param variations | — | sole *(harness only — no artifact)* |
-| 4 | T1112 — Modify Registry | #7 Set-ExecutionPolicy Bypass | — | sole |
-| 5 | T1105 — Ingress Tool Transfer | #10 PowerShell Download | 1116/1117 · `Commandrob.A!ml` | overlap |
-| 6 | T1082 — System Info Discovery | #9 MachineGUID Discovery | — | sole |
-| 7 | T1518.001 — Security Software Discovery | #9 Defender Enumeration | — | sole |
-| 8 | T1555.003 — Credentials from Web Browsers | #16 BrowserStealer | — | sole |
-| 9 | T1539 — Steal Web Session Cookie | #4 Chrome v127+ cookies (remote debug) | — | sole *(fired, failed vs Chrome 151)* |
-| 10 | T1005 — Data from Local System | #1 Stage files to zip | — | sole |
-| 11 | T1041 — Exfiltration Over C2 | #1 C2 Data Exfiltration | — | sole |
+| # | Technique | Test | Defender | Correlation coverage | Rule |
+|---|---|---|---|---|---|
+| 1 | T1204.002 — User Execution | #12 ClickFix RunMRU → mshta | — | sole | deferred → Forge *(telemetry limit)* |
+| 2 | T1218.005 — Mshta | #10 Mshta exec PowerShell | 1116/1117 · `ClickFix.DJS!MTB` | overlap | **deployed (EQL)** |
+| 3 | T1059.001 — PowerShell | #15 EncodedCommand param variations | — | sole *(harness only)* | none *(no artifact)* |
+| 4 | T1112 — Modify Registry | #7 Set-ExecutionPolicy Bypass | — | sole | deferred → Forge |
+| 5 | T1105 — Ingress Tool Transfer | #10 PowerShell Download | 1116/1117 · `Commandrob.A!ml` | overlap | deferred → Forge *(coverage limit)* |
+| 6 | T1082 — System Info Discovery | #9 MachineGUID Discovery | — | sole | **deployed (Lucene)** |
+| 7 | T1518.001 — Security Software Discovery | #9 Defender Enumeration | — | sole | deferred → Forge |
+| 8 | T1555.003 — Credentials from Web Browsers | #16 BrowserStealer | — | sole | deferred → Forge |
+| 9 | T1539 — Steal Web Session Cookie | #4 Chrome cookies (remote debug) | — | sole *(failed vs Chrome 151)* | **deployed (Lucene)** |
+| 10 | T1005 — Data from Local System | #1 Stage files to zip | — | sole | deferred → Forge |
+| 11 | T1041 — Exfiltration Over C2 | #1 C2 Data Exfiltration | — | sole | **deployed (EQL)** |
 
-**Coverage: 9 sole · 2 overlap.** Full per-node evidence and the campaign methodology are in
-[`magpie/README.md`](./magpie/README.md); each node's reconstruction is in
-`magpie/correlation/NN-<technique>/analysis.md`.
+**Correlation coverage: 9 sole · 2 overlap. Rules: 4 deployed · 2 deferred (telemetry/coverage) ·
+1 no-artifact · 4 author-from-scratch (Forge).** Full per-node evidence and the campaign methodology
+are in [`magpie/README.md`](./magpie/README.md); each node's reconstruction is in
+`magpie/correlation/NN-<technique>/analysis.md`; the deployed rules and the detection findings are in
+[`magpie/rules/README.md`](./magpie/rules/README.md).
 
 Three run-level findings worth reading the detail for:
 - **The NGAV tier stops at the foothold.** Both Defender hits landed on delivery/transfer (mshta
   ClickFix, WebClient download). Nothing after the foothold was detected — the concrete case for
-  behavioural detection engineering.
+  custom detection engineering.
 - **Modern Chrome beat both browser-theft techniques.** Node 08's stealer hit app-bound encryption;
   node 09's remote-debugging attempt hit Default-profile DevTools hardening on Chrome 151 (exit -1).
   Only artificially-staged Firefox data was collectable.
-- **The atomics are independent TTP demonstrations, not an end-to-end data flow.** The exfil node
-  sent synthetic dummy data to a placeholder domain, not the collected loot. The accurate claim is
-  *"the discrete TTPs Lumma uses were emulated and each one's telemetry correlated,"* not *"stolen
-  credentials were exfiltrated end-to-end."*
+- **Lucene vs EQL for command-line detection.** Two rules that were provably correct on paper produced
+  zero alerts as Lucene, because Lucene wildcards on the whitespace-tokenized `process.command_line`
+  field cannot match space-bearing substrings (` POST `, ` -me`). Re-converting to EQL fixed it. See
+  the rules README for the full diagnosis.
 
 ---
 
@@ -111,8 +114,9 @@ Three run-level findings worth reading the detail for:
 
 | Item | Status | Notes |
 |---|---|---|
-| Magpie — correlation | **complete** | all 11 nodes analysed (this push) |
-| Magpie — detection rules | **in progress** | `rules/` stub present; Sigma authored from correlation findings, mirrored into *the-forge* |
+| Magpie — correlation | **complete** | all 11 nodes analysed |
+| Magpie — detection rules | **complete** | 4 rules deployed + replay-validated (`magpie/rules/`); import-and-adapt track |
+| Magpie — author-from-scratch rules | **planned** | nodes 1, 4, 5, 7, 8, 10 → *the-forge* detection-as-code pipeline |
 | Brood — quiet-foothold campaign | **planned** | self-authored, single-host; kept separate from Magpie |
 | Living-lab returns to PB-02 | **planned** | lateral movement, AD atomics, broader ATT&CK coverage — deferred, revisited iteratively |
 
@@ -133,5 +137,10 @@ pb-02-detection-engineering/
     │   ├── magpie-run1.csv         # run manifest (ground truth)
     │   ├── 00-driver-execution/    # operation t-zero + provenance root
     │   └── NN-<technique>/         # one folder per node, each with analysis.md
-    └── rules/                      # IN PROGRESS — Sigma authored from correlation
+    └── rules/                      # COMPLETE — 4 rules deployed + validated
+        ├── README.md               # method, coverage decisions, Lucene→EQL finding, evidence
+        ├── yml/                    # portable Sigma (source of truth)
+        ├── lucene/                 # Lucene ndjson (nodes 6, 9 deployed; 2, 11 kept as evidence)
+        ├── eql/                    # EQL ndjson (nodes 2, 11 deployed)
+        └── *.png                   # import + 2-fired + 4-fired evidence
 ```
